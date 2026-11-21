@@ -464,7 +464,7 @@ function escapeHtml(s) {
 function initUI() {
   const $ = id => document.getElementById(id);
   if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "lib/pdf.worker.min.js";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.min.js";
   }
 
   // legend
