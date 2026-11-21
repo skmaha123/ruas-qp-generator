@@ -1,0 +1,79 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #dfe6ee;
+  color: #1d2733;
+}
+header { text-align: center; padding: 28px 16px 8px; }
+h1 { color: #003366; margin: 0 0 6px; font-size: 1.8rem; }
+.sub { margin: 0 auto; max-width: 720px; color: #4a5a6c; }
+main { max-width: 1200px; margin: 0 auto; padding: 12px 16px 32px; }
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin: 16px 0;
+  box-shadow: 0 1px 3px rgba(0, 30, 70, .12);
+}
+h2 { margin: 0 0 14px; font-size: 1.2rem; color: #003366; display: flex; align-items: center; gap: 10px; }
+h3 { margin: 18px 0 8px; font-size: 1rem; color: #003366; }
+.step {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #003366; color: #fff; font-size: .9rem;
+}
+.drop {
+  display: block; text-align: center; cursor: pointer;
+  border: 2px dashed #8fb3d6; border-radius: 10px;
+  padding: 28px 16px; background: #f4f8fc; color: #33475b;
+}
+.drop.over { background: #e3effa; border-color: #5dade2; }
+.drop small { display: block; margin-top: 6px; color: #6b7b8c; }
+.files { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.files li { background: #eef3f8; border-radius: 6px; padding: 6px 10px; font-size: .9rem; }
+.files li.template { outline: 2px solid #5dade2; }
+.files li .count { color: #5c6b7a; margin-left: 6px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: .88rem; color: #33475b; }
+input[type=number], input[type=text], input[type=file] {
+  padding: 8px 10px; border: 1px solid #b9c7d6; border-radius: 6px; font-size: .95rem; background: #fff;
+}
+input[type=number] { width: 120px; }
+input[type=text] { width: 260px; font-family: ui-monospace, Consolas, monospace; }
+.btn {
+  border: 0; border-radius: 6px; padding: 10px 16px; font-size: .95rem; cursor: pointer;
+  background: #5dade2; color: #fff; font-weight: 600;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.green { background: #28a745; }
+.btn.red { background: #dc3545; }
+.btn.purple { background: #6f42c1; }
+.btn.outline { background: #fff; color: #33475b; border: 1px solid #b9c7d6; }
+.btn:hover:not(:disabled) { filter: brightness(1.07); }
+.hint { color: #5c6b7a; font-size: .86rem; margin: 10px 0 0; }
+.status { margin: 10px 0 0; font-size: .92rem; }
+.status.ok { color: #1e7b34; }
+.status.err { color: #b02a37; }
+.result { border-top: 1px solid #e3e9ef; margin-top: 18px; padding-top: 4px; }
+.keybox { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between; }
+.key {
+  display: inline-block; font-size: 1.25rem; letter-spacing: 2px;
+  background: #f1ecfb; color: #4b2a91; padding: 8px 14px; border-radius: 6px; user-select: all;
+}
+#qrImg { width: 160px; height: 160px; image-rendering: pixelated; border: 1px solid #e3e9ef; border-radius: 6px; }
+.downloads { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tablewrap { overflow-x: auto; border: 1px solid #e3e9ef; border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; min-width: 900px; }
+th { background: #003366; color: #fff; text-align: left; padding: 8px; position: sticky; top: 0; }
+td { padding: 7px 8px; border-top: 1px solid rgba(0, 0, 0, .06); vertical-align: top; }
+td.c { text-align: center; white-space: nowrap; }
+tr.b1 { background: #ffcccc; } tr.b2 { background: #ff9999; } tr.b3 { background: #ffcc66; }
+tr.b4 { background: #ffff66; } tr.b5 { background: #99ff99; } tr.b6 { background: #66cc66; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.legend span { padding: 4px 10px; border-radius: 4px; font-weight: 700; font-size: .82rem; }
+.dashboard { display: flex; flex-wrap: wrap; gap: 12px; }
+.dashboard .tile { background: #f4f8fc; border-radius: 8px; padding: 10px 14px; min-width: 160px; }
+.dashboard .tile b { display: block; color: #003366; font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; }
+.dashboard .tile span { font-size: 1.05rem; }
+footer { text-align: center; color: #6b7b8c; font-size: .82rem; padding: 0 0 24px; }

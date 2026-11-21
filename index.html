@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RUAS AI Question Paper Generator</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Libraries (bundled in lib/, everything runs in the browser) -->
+  <script src="lib/jszip.min.js"></script>
+  <script src="lib/pdf.min.js"></script>
+  <script src="lib/qrcode.js"></script>
+</head>
+<body>
+  <header>
+    <h1>RUAS AI Question Paper Generator</h1>
+    <p class="sub">Upload previous question papers → generate a new paper → protect it with an authorization key &amp; QR code.
+      Everything runs in your browser; no files are uploaded to any server.</p>
+  </header>
+
+  <main>
+    <!-- STEP 1 -->
+    <section class="card">
+      <h2><span class="step">1</span> Upload question papers</h2>
+      <label id="dropZone" class="drop">
+        <input id="fileInput" type="file" accept=".docx,.pdf" multiple hidden />
+        <strong>Click to choose</strong> or drag &amp; drop <code>.docx</code> / <code>.pdf</code> files here
+        <small>The first .docx file is used as the template (its <em>last table</em> becomes the question table).</small>
+      </label>
+      <ul id="fileList" class="files"></ul>
+      <p id="uploadStatus" class="status"></p>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="card">
+      <h2><span class="step">2</span> Generate question paper</h2>
+      <div class="row">
+        <label>No. of questions
+          <input id="numQuestions" type="number" min="1" value="6" />
+        </label>
+        <button id="btnGenerate" class="btn green" disabled>Generate / Regenerate</button>
+        <button id="btnClear" class="btn red">Clear</button>
+      </div>
+      <p class="hint">One question is picked at random for each question number (Q1, Q2, …) from across all uploaded papers.
+        Regenerating avoids questions already used in this session where possible.</p>
+
+      <div id="result" class="result" hidden>
+        <div class="keybox">
+          <div>
+            <h3>Authorization key</h3>
+            <code id="keyText" class="key"></code>
+            <p id="savedName" class="hint"></p>
+            <div class="downloads">
+              <button id="dlProtected" class="btn purple">⬇ Protected QP (.qp)</button>
+              <button id="dlKey" class="btn">⬇ Key (.txt)</button>
+              <button id="dlQr" class="btn">⬇ QR code (.png)</button>
+              <button id="dlDocx" class="btn outline">⬇ Unprotected .docx</button>
+            </div>
+          </div>
+          <img id="qrImg" alt="Authorization QR code" />
+        </div>
+
+        <h3>Question analysis</h3>
+        <div class="tablewrap">
+          <table id="analysis">
+            <thead>
+              <tr><th>Q No</th><th>Question</th><th>Source</th><th>CO</th><th>Bloom</th><th>Score &amp; Level</th><th>Suggestion</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="legend" id="legend"></div>
+        <div id="dashboard" class="dashboard"></div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="card">
+      <h2><span class="step">3</span> Open a protected question paper</h2>
+      <div class="row">
+        <label>Protected file (.qp)
+          <input id="qpFile" type="file" accept=".qp" />
+        </label>
+        <label>Authorization key
+          <input id="qpKey" type="text" placeholder="20-character key" autocomplete="off" spellcheck="false" />
+        </label>
+        <button id="btnOpen" class="btn purple">Unlock &amp; download</button>
+      </div>
+      <p id="openStatus" class="status"></p>
+    </section>
+  </main>
+
+  <footer>RUAS AI Question Paper Generator · client-side web version</footer>
+  <script src="app.js"></script>
+</body>
+</html>
