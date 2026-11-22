@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RUAS AI Question Paper Generator</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <!-- Libraries (bundled alongside, everything runs in the browser) -->
   <script src="jszip.min.js"></script>
   <script src="pdf.min.js"></script>
@@ -18,6 +18,20 @@
   </header>
 
   <main>
+    <!-- DEMO SAMPLES -->
+    <section class="card demo" id="sampleCard">
+      <h2><span class="badge">DEMO</span> Sample question papers <small class="muted">EED103A · Introduction to Electrical Engineering · 3 sets</small></h2>
+      <p class="hint" style="margin-top:0">For demonstration only. View or download any set, or load all three into the generator to try it without your own files.</p>
+      <div id="sampleList" class="samples"></div>
+      <div class="row" style="margin-top:12px">
+        <button id="btnUseSamples" class="btn green">▶ Use all 3 samples in the generator</button>
+        <button id="btnDlAll" class="btn outline">⬇ Download all 3 (.zip)</button>
+        <button id="btnHideSamples" class="btn red">✕ Clear samples from this page</button>
+      </div>
+      <p id="sampleStatus" class="status"></p>
+    </section>
+    <p id="showSamplesWrap" class="restore" hidden>Sample papers are hidden. <a href="#" id="btnShowSamples">Show demo samples again</a></p>
+
     <!-- STEP 1 -->
     <section class="card">
       <h2><span class="step">1</span> Upload question papers</h2>
@@ -89,7 +103,8 @@
     </section>
   </main>
 
+  <dialog id="previewDlg"><div class="dlg-h"><b id="previewTitle"></b><button id="previewClose" class="btn outline">✕ Close</button></div><div id="previewBody"></div></dialog>
   <footer>RUAS AI Question Paper Generator · client-side web version</footer>
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

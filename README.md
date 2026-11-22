@@ -48,3 +48,11 @@ python -m http.server 8000   # then open http://localhost:8000
 ## Notes
 - PDF extraction is approximate (text only, no formatting). Word `.docx` papers give the best results.
 - Bundled libraries in `lib/`: JSZip, pdf.js (Mozilla) and qrcode-generator, each under its own open-source licence.
+
+
+## Demo sample papers
+Three anonymised-for-demo papers for EED103A (Introduction to Electrical Engineering, SEE Jan 2026) are included:
+`SAMPLE_SET-1_EED103A.docx`, `SAMPLE_SET-2_EED103A.docx`, `SAMPLE_SET-3_EED103A.docx`.
+On the page you can view each set, download one or all three (.zip), load all three into the generator,
+or clear the samples from the page (remembered in this browser; "Show demo samples again" brings them back).
+To remove the samples permanently from the website, delete the three SAMPLE_*.docx files from the repository.

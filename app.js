@@ -159,9 +159,10 @@ function extractFromDocx(src) {
   const groups = new Map();
   if (!body) return [];
   for (const tbl of childEls(body, "tbl")) {
+    let current = null;   // question number of the previous row, for sub-parts (b), (c)… with an empty/merged Q No cell
     for (const tr of childEls(tbl, "tr")) {
       const cells = childEls(tr, "tc").map(tc => cellText(tc).trim());
-      if (cells.length < 2) continue;
+      if (cells.length < 2) { current = null; continue; }
       const qno = cells[0], qtext = cells[1];
       const marks = cells.length > 2 ? cells[2] : "NA";
       const co = cells.length > 3 ? cells[3] : extractCO(qtext);
@@ -169,6 +170,11 @@ function extractFromDocx(src) {
         const base = qno.match(/^\d+/)[0];
         if (!groups.has(base)) groups.set(base, []);
         groups.get(base).push({ tr, text: qtext, marks, co });
+        current = base;
+      } else if (!qno && current && qtext.length > 5) {
+        groups.get(current).push({ tr, text: qtext, marks, co });   // continuation row of the same question
+      } else {
+        current = null;
       }
     }
   }
@@ -308,6 +314,67 @@ function makeRelRemapper(outZip, relsDoc, ctDoc) {
   };
 }
 
+/* Copies list-numbering definitions used by a row (from any source .docx) into the output
+ * and gives each question its own list instance, so a/b and i/ii/iii labels keep their
+ * format and restart for every question. */
+async function makeNumberingRemapper(outZip, ctDoc) {
+  const path = "word/numbering.xml";
+  let out = outZip.file(path) ? parseXml(await outZip.file(path).async("string")) : null;
+  const srcCache = new Map(), absCache = new Map();
+  const attr = (el, n) => el.getAttributeNS(W_NS, n) ?? el.getAttribute("w:" + n);
+  const setA = (el, n, v) => el.setAttributeNS(W_NS, "w:" + n, String(v));
+  function ensureOut() {
+    if (out) return;
+    out = parseXml(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="${W_NS}"/>`);
+    const root = ctDoc.documentElement;
+    if (!toArray(root.getElementsByTagNameNS(CT_NS, "Override")).some(o => o.getAttribute("PartName") === "/word/numbering.xml")) {
+      const o = ctDoc.createElementNS(CT_NS, "Override"); o.setAttribute("PartName", "/word/numbering.xml");
+      o.setAttribute("ContentType", "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"); root.appendChild(o);
+    }
+  }
+  const maxId = (tag, a) => Math.max(0, ...childEls(out.documentElement, tag).map(e => +attr(e, a) || 0));
+  async function srcNumbering(src) {
+    if (!srcCache.has(src.uid)) { const f = src.zip && src.zip.file(path); srcCache.set(src.uid, f ? parseXml(await f.async("string")) : null); }
+    return srcCache.get(src.uid);
+  }
+  async function remap(node, src, numMap) {
+    const ids = toArray(node.getElementsByTagNameNS(W_NS, "numId"));
+    if (!ids.length) return;
+    const sn = await srcNumbering(src);
+    if (!sn) return;
+    ensureOut();
+    for (const el of ids) {
+      const old = attr(el, "val");
+      if (!old || old === "0") continue;
+      if (!numMap.has(old)) {
+        const num = childEls(sn.documentElement, "num").find(n => attr(n, "numId") === old);
+        if (!num) continue;
+        const absId = attr(childEls(num, "abstractNumId")[0], "val"), key = src.uid + "|" + absId;
+        if (!absCache.has(key)) {
+          const abs = childEls(sn.documentElement, "abstractNum").find(a => attr(a, "abstractNumId") === absId);
+          if (!abs) continue;
+          const copy = out.importNode(abs, true), newAbs = maxId("abstractNum", "abstractNumId") + 1;
+          setA(copy, "abstractNumId", newAbs);
+          childEls(copy, "nsid").forEach(n => setA(n, "val", Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, "0")).join("").toUpperCase()));
+          const firstNum = childEls(out.documentElement, "num")[0];
+          out.documentElement.insertBefore(copy, firstNum || null);
+          absCache.set(key, newAbs);
+        }
+        const newNum = maxId("num", "numId") + 1, n = out.createElementNS(W_NS, "w:num");
+        setA(n, "numId", newNum);
+        const an = out.createElementNS(W_NS, "w:abstractNumId"); setA(an, "val", absCache.get(key)); n.appendChild(an);
+        for (let l = 0; l < 9; l++) { const lo = out.createElementNS(W_NS, "w:lvlOverride"); setA(lo, "ilvl", l); const so = out.createElementNS(W_NS, "w:startOverride"); setA(so, "val", 1); lo.appendChild(so); n.appendChild(lo); }
+        const cleanup = childEls(out.documentElement, "numIdMacAtCleanup")[0];
+        out.documentElement.insertBefore(n, cleanup || null);
+        numMap.set(old, newNum);
+      }
+      setA(el, "val", numMap.get(old));
+    }
+  }
+  remap.save = async () => { if (out) outZip.file(path, serializeXml(out)); };
+  return remap;
+}
+
 async function buildPaper(selected, template) {
   const zip = await JSZip.loadAsync(template.buffer);
   const xml = parseXml(await zip.file("word/document.xml").async("string"));
@@ -331,15 +398,18 @@ async function buildPaper(selected, template) {
   ["Q No", "Questions", "Marks", "CO"].forEach((h, i) => { if (hcells[i]) setCellText(hcells[i], h); });
 
   const remap = makeRelRemapper(zip, rels, ct);
+  const renumber = await makeNumberingRemapper(zip, ct);
 
   for (let i = 0; i < selected.length; i++) {
     const q = selected[i];
     const num = String(i + 1);
     if (q.rows) {
       // copy original rows, including equations / images
+      const numMap = new Map();   // fresh list numbering for every question: (a), (b) and i, ii restart correctly
       for (const part of q.rows) {
         const clone = xml.importNode(part.tr, true);
         if (q.src !== template) await remap(clone, q.src);
+        await renumber(clone, q.src, numMap);
         const firstTc = childEls(clone, "tc")[0];
         if (firstTc) setCellText(firstTc, cellText(firstTc).trim().replace(/^\d+/, num));
         table.appendChild(clone);
@@ -355,6 +425,7 @@ async function buildPaper(selected, template) {
     }
   }
 
+  await renumber.save();
   zip.file("word/document.xml", serializeXml(xml));
   zip.file(relsPath, serializeXml(rels));
   zip.file("[Content_Types].xml", serializeXml(ct));
@@ -513,6 +584,68 @@ function initUI() {
     if (errors.length) msg += "\n" + errors.join("\n");
     setStatus(status, msg, errors.length || !template ? "err" : "ok");
   }
+
+  /* ---------- demo sample papers ---------- */
+  const SAMPLES = [
+    { file: "SAMPLE_SET-1_EED103A.docx", title: "Set 1", topics: "Thevenin's theorem · inductive AC circuit · DC machine EMF · transformer" },
+    { file: "SAMPLE_SET-2_EED103A.docx", title: "Set 2", topics: "Nodal analysis · resistive AC circuit · DC motor torque · transformer" },
+    { file: "SAMPLE_SET-3_EED103A.docx", title: "Set 3", topics: "Superposition theorem · capacitive AC circuit · DC generator EMF · transformer" },
+  ];
+  const HIDE_KEY = "ruasqp.hideSamples";
+  const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+  async function fetchSample(s) {
+    const r = await fetch(s.file);
+    if (!r.ok) throw new Error(`${s.file} not found (HTTP ${r.status})`);
+    return r.arrayBuffer();
+  }
+  const sampleErr = e => setStatus($("sampleStatus"), location.protocol === "file:" ? "Samples load only when the page is opened from its website (GitHub Pages), not as a local file." : "Could not load the sample: " + e.message, "err");
+  $("sampleList").innerHTML = SAMPLES.map((s, i) => `
+    <div class="sample">
+      <div class="sicon">📄</div>
+      <div class="sinfo"><b>EED103A — ${s.title}</b><small>${escapeHtml(s.topics)}</small><small>SEE Jan 2026 · 6 questions · 50 marks · 2 hours</small></div>
+      <div class="sbtns"><button class="btn outline sm" data-view="${i}">👁 View</button><button class="btn sm" data-dl="${i}">⬇ Download</button></div>
+    </div>`).join("");
+  $("sampleList").addEventListener("click", async e => {
+    const v = e.target.closest("[data-view]"), d = e.target.closest("[data-dl]");
+    try {
+      if (d) { const s = SAMPLES[+d.dataset.dl]; download(await fetchSample(s), s.file, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); setStatus($("sampleStatus"), `Downloaded ${s.file}`, "ok"); }
+      if (v) {
+        const s = SAMPLES[+v.dataset.view], src = await loadDocx(s.file, await fetchSample(s)), qs = extractFromDocx(src);
+        $("previewTitle").textContent = `EED103A — ${s.title} (demo sample)`;
+        $("previewBody").innerHTML = `<p class="hint" style="margin-top:0">Questions as read by the generator. Figures and equations are kept in the downloaded Word file.</p>
+          <table class="prev"><thead><tr><th>Q No</th><th>Question</th><th>Marks</th><th>CO</th><th>Bloom</th></tr></thead><tbody>${qs.flatMap(q => q.rows.map((r, k) => `<tr><td class="c">${k ? "" : q.qno}</td><td>${escapeHtml(r.text).replace(/\n/g, "<br>")}</td><td class="c">${escapeHtml(r.marks)}</td><td class="c">${escapeHtml(r.co)}</td><td class="c">${detectBloom(r.text)}</td></tr>`)).join("")}</tbody></table>
+          <div class="row" style="margin-top:12px"><button class="btn" id="prevDl">⬇ Download this set (.docx)</button></div>`;
+        $("prevDl").onclick = async () => download(await fetchSample(s), s.file, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        $("previewDlg").showModal();
+      }
+    } catch (err) { console.warn(err); sampleErr(err); }
+  });
+  $("previewClose").addEventListener("click", () => $("previewDlg").close());
+  $("btnUseSamples").addEventListener("click", async () => {
+    try {
+      setStatus($("sampleStatus"), "Loading the 3 sample papers…");
+      const files = []; for (const s of SAMPLES) files.push(new File([await fetchSample(s)], s.file));
+      await handleFiles(files);
+      setStatus($("sampleStatus"), "Samples loaded into Step 1. Now press 'Generate / Regenerate' in Step 2.", "ok");
+      $("btnGenerate").scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (err) { sampleErr(err); }
+  });
+  $("btnDlAll").addEventListener("click", async () => {
+    try { const z = new JSZip(); for (const s of SAMPLES) z.file(s.file, await fetchSample(s)); download(await z.generateAsync({ type: "blob" }), "RUAS_Sample_QPs_EED103A.zip"); setStatus($("sampleStatus"), "Downloaded all 3 sample papers.", "ok"); }
+    catch (err) { sampleErr(err); }
+  });
+  function showSamples(show) {
+    $("sampleCard").hidden = !show; $("showSamplesWrap").hidden = show;
+    store.set(HIDE_KEY, show ? null : "1");
+  }
+  $("btnHideSamples").addEventListener("click", () => {
+    if (!confirmClear()) return;
+    if (state.sources.some(s => /^SAMPLE_SET-/.test(s.name))) $("btnClear").click();
+    showSamples(false);
+  });
+  function confirmClear() { return window.confirm("Clear the demo sample papers from this page?\nAny samples loaded into the generator are removed too. You can show them again later."); }
+  $("btnShowSamples").addEventListener("click", e => { e.preventDefault(); showSamples(true); });
+  showSamples(store.get(HIDE_KEY) !== "1");
 
   $("btnGenerate").addEventListener("click", async () => {
     const template = state.sources.find(s => s.kind === "docx");
